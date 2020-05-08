@@ -15,7 +15,7 @@
 
 Program CommandLineFPaS;
 
-Uses   Crt, SysUtils, Math, PairRealSort;
+Uses   Crt, SysUtils, DateUtils, Math, PairRealSort, EpikTimer;
 
 {$r-}
 
@@ -23,10 +23,14 @@ Uses   Crt, SysUtils, Math, PairRealSort;
  * Constanbts and data structures definition.
  *)
 Const
-         ctScreenWidth       = 80;    { Console Screen Size X (columns) }
-         ctScreenHeight      = 23;    { Console Screen Size Y (rows)    }
+         ctScreenWidth       = 120 {80};    { Console Screen Size X (columns) }
+         ctScreenHeight      = 40 {23};    { Console Screen Size Y (rows)    }
          ctMapWidth          = 16;    { World Dimensions                }
          ctMapHeight         = 16;
+         ctPlayerX           = 8.0  {14.7};   { Player initial coordinates      }
+         ctPlayerY           = 8.0  {5.09};
+
+         ctSpeed      : Real = 5.0;   { Walking speed                   }
          ctDepth      : Real = 16.0;  { Maximum rendering distance      }
 
 (* From (types.pas) - PopolonY2k Framework *)
@@ -39,7 +43,6 @@ Type  TDynCharArray = Array[0..0] Of Char;  { Unchecked array just to   }
          fPlayerX        : Real;      { Player start                    }
          fPlayerY        : Real;      { position                        }
          fFOV            : Real;      { Field of View                   }
-         fSpeed          : Real;      { Walking Speed                   }
          fTp1, fTp2      : Real;
          fElapsedTime    : Real;
          fRayAngle       : Real;
@@ -68,6 +71,8 @@ Type  TDynCharArray = Array[0..0] Of Char;  { Unchecked array just to   }
          bHitWall        : Boolean;
 	 bBoundary       : Boolean;
          p               : TPairRealArray;
+         strStats        : String[40];
+         timer           : TEpikTimer;
 
 (**
   * Fill map for a given row.
@@ -93,11 +98,11 @@ Var
        strMap : String[17];
        nCX, nCY : Integer;
 Begin
-  fFOV      := ( 3.14159 / 4.0 );
-  fPlayerX  := 14.7;
-  fPlayerY  := 5.09;
+  fFOV      := ( Pi / 4.0 );
+  fPlayerX  := ctPlayerX;
+  fPlayerY  := ctPlayerY;
   fPlayerA  := 0.0;
-  fSpeed    := 5.0;
+  timer     := TEpikTimer.Create( Nil );
 
   WriteLn( SizeOf( Char ) );
   { Create Map of world space # = wall block, . = space }
@@ -121,25 +126,14 @@ Begin
 
   FillChar( aScreenBuffer, SizeOf( aScreenBuffer ), ' ' );
   pScreenBuffer := @aScreenBuffer; { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
-
-  {
-  ClrScr;
-  For nCy := 0 To 15 Do
-  Begin
-    For nCx := 0 To 15 Do
-      Write( pMap^[nCx * ctMapWidth + nCy] );
-    WriteLn;
-  End;
-  ReadLn;
-  }
 End;
 
 
 Begin       { Main entry point }
   InitEngine;           { Initialize engine data }
+  timer.Start;
   nBytesWritten := 0;
-  fTp1     := Now;
-  fTp2     := Now;
+  fTp1     := timer.Elapsed;
   bRunning := True;
 
   ClrScr;
@@ -151,7 +145,7 @@ Begin       { Main entry point }
      * to movement speeds, to ensure consistant movement, as ray-tracing
      * is non-deterministic.
      *)
-    fTp2 := Now;
+    fTp2 := timer.Elapsed;
     fElapsedTime := ( fTp2 - fTp1 );
     fTp1  := fTp2;
     chKey := ' ';
@@ -162,42 +156,43 @@ Begin       { Main entry point }
 
     Case chKey Of
       {  Handle CCW Rotation }
-      'A' : fPlayerA := fPlayerA - ( fSpeed * 0.75 ) * fElapsedTime;
+      'A' : fPlayerA := fPlayerA - ( ctSpeed * 0.75 ) * fElapsedTime;
 
       { Handle CW Rotation }
-      'D' : fPlayerA := fPlayerA +  ( fSpeed * 0.75 ) * fElapsedTime;
+      'D' : fPlayerA := fPlayerA +  ( ctSpeed * 0.75 ) * fElapsedTime;
 
       // Handle Forwards movement & collision
       'W' : Begin
-              fPlayerX := fPlayerX + Sin( fPlayerA ) * fSpeed * fElapsedTime;
-              fPlayerY := fPlayerY + Cos( fPlayerA ) * fSpeed * fElapsedTime;
+              fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
+              fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
               if( pMap^[Trunc(fPlayerX * ctMapWidth +fPlayerY )] = '#' )  Then
               Begin
-	        fPlayerX := fPlayerX - Sin( fPlayerA ) * fSpeed * fElapsedTime;
-		fPlayerY := fPlayerY - Cos( fPlayerA ) * fSpeed * fElapsedTime;
+	        fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
+		fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
               End;
             End;
 
       // Handle backwards movement & collision
       'S' : Begin
-	      fPlayerX := fPlayerX - Sin( fPlayerA ) * fSpeed * fElapsedTime;
-	      fPlayerY := fPlayerY - Cos( fPlayerA ) * fSpeed * fElapsedTime;
+	      fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
+	      fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
               if( pMap^[Trunc( fPlayerX * ctMapWidth + fPlayerY )] = '#' )  Then
 	      Begin
-                fPlayerX := fPlayerX + Sin( fPlayerA ) * fSpeed * fElapsedTime;
-		fPlayerY := fPlayerY + Cos( fPlayerA ) * fSpeed * fElapsedTime;
+                fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
+		fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
               End;
             End;
 
       #27 : bRunning := False;   { ESC - Exit }
     End;
 
-    for x := 0 To ( ctScreenWidth -1 ) Do
+    For x := 0 To ( ctScreenWidth - 1 ) Do
     Begin
       { For each column, calculate the projected ray angle into world space }
-      fRayAngle := ( fPlayerA - fFOV / 2.0 ) + ( x / ctScreenWidth ) * fFOV;
+      { TODO: Check Real cast below, at the end }
+      fRayAngle := ( fPlayerA - fFOV / 2.0 ) + ( Real( x ) / Real( ctScreenWidth ) ) * fFOV;
 
       { Find distance to wall }
       fStepSize       := 0.1;    { Increment size for ray casting,     }
@@ -276,7 +271,7 @@ Begin       { Main entry point }
       End;
 
       { Calculate distance to ceiling and floor }
-      nCeiling := Trunc( ( ( ctScreenHeight / 2.0 ) - ctScreenHeight ) /
+      nCeiling := Trunc( ( ctScreenHeight / 2.0 ) - ctScreenHeight /
                            fDistanceToWall );
       nFloor   := ( ctScreenHeight - nCeiling );
 
@@ -284,13 +279,13 @@ Begin       { Main entry point }
       chShade := ' ';
 
       If( fDistanceToWall <= ctDepth / 4.0 )  Then
-        chShade := #$FB  {0x2588}  { Very close }
+        chShade := #$DB    {0x2588}  { Very close }
       Else If( fDistanceToWall < ctDepth / 3.0 )  Then
-        chShade := #$FC  {0x2593}
+        chShade := #$B2  {0x2593}
       Else If( fDistanceToWall < ctDepth / 2.0 )  Then
-        chShade := #$FD  {0x2592}
+        chShade := #$B1  {0x2592}
       Else If( fDistanceToWall < ctDepth )  Then
-        chShade := #$FE  {0x2591}
+        chShade := #$B0  {0x2591}
       Else
         chShade := ' ';            { Too far away }
 
@@ -330,7 +325,9 @@ Begin       { Main entry point }
     End;
 
     { Display stats }
-    {swprintf_s(screen, 40, L"X=%3.2f, Y=%3.2f, A=%3.2f FPS=%3.2f ", fPlayerX, fPlayerY, fPlayerA, 1.0f/fElapsedTime);}
+    strStats := Format( 'X=%3.2f, Y=%3.2f, A=%3.2f FPS=%3.8f ', [fPlayerX, fPlayerY, fPlayerA, {1.0 /} fElapsedTime ] );
+    For nx := 0 To Length( strStats ) Do
+      pScreenBuffer^[nx] := strStats[nx+1];
 
     { Display Map }
     For nx := 0 To ( ctMapWidth - 1 ) Do
@@ -339,12 +336,16 @@ Begin       { Main entry point }
         pScreenBuffer^[( ny + 1 ) * ctScreenWidth + nx] := pMap^[ny * ctMapWidth + nx];
       End;
 
-    pScreenBuffer^[Trunc( fPlayerX + 1) * ctScreenWidth + Trunc( fPlayerY )] := 'P';
+    pScreenBuffer^[Trunc( fPlayerX + 1 ) * ctScreenWidth + Trunc( fPlayerY )] := 'P';
 
     { Display Frame }
     pScreenBuffer^[ctScreenWidth * ctScreenHeight - 1] := #0;
-    (*WriteConsoleOutputCharacter(hConsole, screen, nScreenWidth * nScreenHeight, { 0,0 }, &dwBytesWritten);*)
+
+    ClrScr;
+    Write( StrPas( pScreenBuffer^ ) );
   End;
+
+  timer.Stop;
 End.
 
 { That's It!! - PopolonY2k }
