@@ -26,7 +26,7 @@ Program CommandLineFPaS;
   {$ENDIF  __NCRT}
 {$ENDIF __NCURSES}
 
-Uses   SysUtils, DateUtils, Math, PairRealSort, EpikTimer
+Uses   SysUtils, DateUtils, Math, PairRealSort
 {$IFDEF __NCRT}
        ,NCrt
 {$ELSE  __CRT}
@@ -49,7 +49,7 @@ Const
          ctMapHeight         =   16;
          ctPlayerX           =  8.0;   { Player initial coordinates      }
          ctPlayerY           =  8.0;
-         ctSpeed      : Real = 25.0;   { Walking speed                   }
+         ctSpeed      : Real = 5.0;    { Walking speed                   }
          ctDepth      : Real = 16.0;   { Maximum rendering distance      }
          ctBound      : Real = 0.01;   { Ray boundary precision          }
 
@@ -97,9 +97,16 @@ Var
          bHitWall        : Boolean;
 	 bBoundary       : Boolean;
          p               : TPairRealArray;
-         timer           : TEpikTimer;
          strStats        : String[40];
 
+
+(**
+  * Get the tick count for FPS calculation.
+  *)
+Function GetClockTickCount : Real;
+Begin
+  GetClockTickCount := ( GetTickCount64 / 100 );
+End;
 
 (**
   * Fill map for a given row.
@@ -125,11 +132,11 @@ Var
        strMap   : String[17];
        nCX, nCY : Integer;
 Begin
-  timer    := TEpikTimer.Create( Nil );
   fFOV     := ( Pi / 4.0 );
   fPlayerX := ctPlayerX;
   fPlayerY := ctPlayerY;
   fPlayerA := 0.0;
+  fTp1     := GetClockTickCount;
   bRunning := True;
 
   { Create Map of world space # = wall block, . = space }
@@ -153,9 +160,6 @@ Begin
 
   FillChar( aScreenBuffer, SizeOf( aScreenBuffer ), ' ' );
   pScreenBuffer := @aScreenBuffer; { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
-
-  timer.Start;
-  fTp1 := timer.Elapsed;
 End;
 
 (**
@@ -235,7 +239,7 @@ Begin       { Main entry point }
      * to movement speeds, to ensure consistant movement, as ray-tracing
      * is non-deterministic.
      *)
-    fTp2 := timer.Elapsed;
+    fTp2 := GetClockTickCount;
     fElapsedTime := ( fTp2 - fTp1 );
     fTp1  := fTp2;
     chKey := ' ';
@@ -429,7 +433,6 @@ Begin       { Main entry point }
     WriteOutput;
   End;
 
-  timer.Stop;
   CloseOutputDevice;
 End.
 
