@@ -43,14 +43,16 @@ Uses   SysUtils, DateUtils, Math, PairRealSort, EpikTimer
  * Constanbts and data structures definition.
  *)
 Const
-         ctScreenWidth       = 120;    { Console Screen Size X (columns) }
-         ctScreenHeight      = 40;     { Console Screen Size Y (rows)    }
-         ctMapWidth          = 16;     { World Dimensions                }
-         ctMapHeight         = 16;
-         ctPlayerX           = 8.0;    { Player initial coordinates      }
-         ctPlayerY           = 8.0;
-         ctSpeed      : Real = 5.0;    { Walking speed                   }
+         ctScreenWidth       =  120;   { Console Screen Size X (columns) }
+         ctScreenHeight      =   40;   { Console Screen Size Y (rows)    }
+         ctMapWidth          =   16;   { World Dimensions                }
+         ctMapHeight         =   16;
+         ctPlayerX           =  8.0;   { Player initial coordinates      }
+         ctPlayerY           =  8.0;
+         ctSpeed      : Real = 25.0;   { Walking speed                   }
          ctDepth      : Real = 16.0;   { Maximum rendering distance      }
+         ctBound      : Real = 0.01;   { Ray boundary precision          }
+
 
 Type
 {$IFDEF __WIDECHAR}
@@ -75,7 +77,6 @@ Var
 	 fDistanceToWall : Real;
          fEyeX           : Real;
          fEyeY           : Real;
-         fBound          : Real;
          vy, vx          : Real;
          b, d, dot       : Real;
          aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of TChar;
@@ -110,7 +111,7 @@ Var
      nCount,
      nLen     : Integer;
 Begin
-  nLen := Length( strData );
+  nLen := ( Length( strData ) - 1 );
 
   For nCount := 0 To nLen Do
     aMap[nRow, nCount] := strData[nCount+1];
@@ -254,7 +255,7 @@ Begin       { Main entry point }
               fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
               fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
-              if( pMap^[Trunc(fPlayerX * ctMapWidth +fPlayerY )] = '#' )  Then
+              if( pMap^[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
               Begin
 	        fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 		fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
@@ -266,7 +267,7 @@ Begin       { Main entry point }
 	      fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 	      fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
-              if( pMap^[Trunc( fPlayerX * ctMapWidth + fPlayerY )] = '#' )  Then
+              if( pMap^[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
 	      Begin
                 fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 		fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
@@ -279,8 +280,7 @@ Begin       { Main entry point }
     For x := 0 To ( ctScreenWidth - 1 ) Do
     Begin
       { For each column, calculate the projected ray angle into world space }
-      { TODO: Check Real cast below, at the end }
-      fRayAngle := ( fPlayerA - fFOV / 2.0 ) + ( Real( x ) / Real( ctScreenWidth ) ) * fFOV;
+      fRayAngle := ( fPlayerA - fFOV / 2.0 ) + ( x / ctScreenWidth ) * fFOV;
 
       { Find distance to wall }
       fStepSize       := 0.1;    { Increment size for ray casting,     }
@@ -346,13 +346,11 @@ Begin       { Main entry point }
             PairRealSort.SortPairRealArray( p );
 
             { First two/three are closest (we will never see all four) }
-            fBound := 0.01;
-
-            If( ArcCos( p[0].second ) < fBound ) Then
+            If( ArcCos( p[0].second ) < ctBound ) Then
               bBoundary := True;
-            If( ArcCos( p[1].second ) < fBound ) Then
+            If( ArcCos( p[1].second ) < ctBound ) Then
               bBoundary := True;
-            If( ArcCos( p[2].second ) < fBound ) Then
+            If( ArcCos( p[2].second ) < ctBound ) Then
               bBoundary := True;
           End;
         End;
@@ -415,12 +413,6 @@ Begin       { Main entry point }
     { Display stats }
     strStats := Format( 'X=%3.2f, Y=%3.2f, A=%3.2f FPS=%3.8f ', [fPlayerX, fPlayerY, fPlayerA, {1.0 /} fElapsedTime ] );
     System.Move( strStats[1], pScreenBuffer^, Length( strStats ) );
-
-    (*
-    { For WideChar, use routine below }
-    For nx := 0 To Length( strStats ) Do
-      pScreenBuffer^[nx] := strStats[nx+1];
-    *)
 
     { Display Map }
     For nx := 0 To ( ctMapWidth - 1 ) Do
