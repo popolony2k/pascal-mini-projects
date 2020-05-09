@@ -43,15 +43,19 @@ Uses   SysUtils, DateUtils, Math, PairRealSort
  * Constanbts and data structures definition.
  *)
 Const
-         ctScreenWidth       =  120;   { Console Screen Size X (columns) }
-         ctScreenHeight      =   40;   { Console Screen Size Y (rows)    }
-         ctMapWidth          =   16;   { World Dimensions                }
+         ctMili              = 1000;    { Miliseconds  scale              }
+         ctMicro             = 1000000; { Microseconds scale              }
+
+         ctClockScale        = ctMicro; { Set clock scale                 }
+         ctScreenWidth       =  120;    { Console Screen Size X (columns) }
+         ctScreenHeight      =   40;    { Console Screen Size Y (rows)    }
+         ctMapWidth          =   16;    { World Dimensions                }
          ctMapHeight         =   16;
-         ctPlayerX           =  8.0;   { Player initial coordinates      }
+         ctPlayerX           =  8.0;    { Player initial coordinates      }
          ctPlayerY           =  8.0;
-         ctSpeed      : Real = 5.0;    { Walking speed                   }
-         ctDepth      : Real = 16.0;   { Maximum rendering distance      }
-         ctBound      : Real = 0.01;   { Ray boundary precision          }
+         ctSpeed      : Real = 5.0;     { Walking speed                   }
+         ctDepth      : Real = 16.0;    { Maximum rendering distance      }
+         ctBound      : Real = 0.01;    { Ray boundary precision          }
 
 
 Type
@@ -61,15 +65,15 @@ Type
       TChar        = Char;
 {$ENDIF __WIDECHAR}
       (* From (types.pas) - PopolonY2k Framework *)
-      TDynCharArray = Array[0..0] Of TChar;  { Unchecked array just to   }
-      PDynCharArray = ^TDynCharArray;        { work easily like C does   }
-      TMapRowData   = String[ctMapWidth+1];  { Map row data              }
+      TDynCharArray = Array[0..0] Of TChar;   { Unchecked array just to   }
+      PDynCharArray = ^TDynCharArray;         { work easily like C does   }
+      TMapRowData   = String[ctMapWidth+1];   { Map row data              }
 
 Var
-         fPlayerA        : Real;       { Player Start Rotation           }
-         fPlayerX        : Real;       { Player start                    }
-         fPlayerY        : Real;       { position                        }
-         fFOV            : Real;       { Field of View                   }
+         fPlayerA        : Real;        { Player Start Rotation           }
+         fPlayerX        : Real;        { Player start                    }
+         fPlayerY        : Real;        { position                        }
+         fFOV            : Real;        { Field of View                   }
          fTp1, fTp2      : Real;
          fElapsedTime    : Real;
          fRayAngle       : Real;
@@ -105,7 +109,7 @@ Var
   *)
 Function GetClockTickCount : Real;
 Begin
-  GetClockTickCount := ( GetTickCount64 / 100 );
+  GetClockTickCount := ( Now *  ctClockScale );
 End;
 
 (**
