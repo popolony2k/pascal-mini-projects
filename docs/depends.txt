@@ -1,0 +1,13 @@
+This document describe all mini projects dependencies.
+CopyLeft (c) since 2020 by PopolonY2k 
+
+
+cmdlnpas 
+========
+
+This project depends on fp units base installation, that can be
+installed like below (Debian or Ubuntu and variants like Mint):
+
+sudo apt-get install fp-units-base-3.0.4
+
+

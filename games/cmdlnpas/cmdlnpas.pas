@@ -15,7 +15,27 @@
 
 Program CommandLineFPaS;
 
-Uses   Crt, SysUtils, DateUtils, Math, PairRealSort, EpikTimer;
+(*
+ * There is a problem is runtime (program exit), when it is compiled with
+ * ncurses + crt).
+ *)
+{$IFDEF __NCURSES}
+  {$IFNDEF __NCRT}
+    {$ERROR This program doesn't run when compiled with (ncurses + crt),
+    use (ncurses + ncrt)}
+  {$ENDIF  __NCRT}
+{$ENDIF __NCURSES}
+
+Uses   SysUtils, DateUtils, Math, PairRealSort, EpikTimer
+{$IFDEF __NCRT}
+       ,NCrt
+{$ELSE  __CRT}
+       , Crt
+{$ENDIF __NCRT}
+{$IFDEF __NCURSES}
+       ,NCurses
+{$ENDIF __NCURSES}
+       ;
 
 {$r-}
 
@@ -23,26 +43,31 @@ Uses   Crt, SysUtils, DateUtils, Math, PairRealSort, EpikTimer;
  * Constanbts and data structures definition.
  *)
 Const
-         ctScreenWidth       = 120 {80};    { Console Screen Size X (columns) }
-         ctScreenHeight      = 40 {23};    { Console Screen Size Y (rows)    }
-         ctMapWidth          = 16;    { World Dimensions                }
+         ctScreenWidth       = 120;    { Console Screen Size X (columns) }
+         ctScreenHeight      = 40;     { Console Screen Size Y (rows)    }
+         ctMapWidth          = 16;     { World Dimensions                }
          ctMapHeight         = 16;
-         ctPlayerX           = 8.0  {14.7};   { Player initial coordinates      }
-         ctPlayerY           = 8.0  {5.09};
+         ctPlayerX           = 8.0;    { Player initial coordinates      }
+         ctPlayerY           = 8.0;
+         ctSpeed      : Real = 5.0;    { Walking speed                   }
+         ctDepth      : Real = 16.0;   { Maximum rendering distance      }
 
-         ctSpeed      : Real = 5.0;   { Walking speed                   }
-         ctDepth      : Real = 16.0;  { Maximum rendering distance      }
+Type
+{$IFDEF __WIDECHAR}
+      TChar        = WideChar;
+{$ELSE  __CHAR}
+      TChar        = Char;
+{$ENDIF __WIDECHAR}
+      (* From (types.pas) - PopolonY2k Framework *)
+      TDynCharArray = Array[0..0] Of TChar;  { Unchecked array just to   }
+      PDynCharArray = ^TDynCharArray;        { work easily like C does   }
+      TMapRowData   = String[ctMapWidth+1];  { Map row data              }
 
-(* From (types.pas) - PopolonY2k Framework *)
-Type  TDynCharArray = Array[0..0] Of Char;  { Unchecked array just to   }
-      PDynCharArray = ^TDynCharArray;       { work easily like C does   }
-      TMapRowData   = String[ctMapWidth+1]; { Map row data              }
-
-      Var
-         fPlayerA        : Real;      { Player Start Rotation           }
-         fPlayerX        : Real;      { Player start                    }
-         fPlayerY        : Real;      { position                        }
-         fFOV            : Real;      { Field of View                   }
+Var
+         fPlayerA        : Real;       { Player Start Rotation           }
+         fPlayerX        : Real;       { Player start                    }
+         fPlayerY        : Real;       { position                        }
+         fFOV            : Real;       { Field of View                   }
          fTp1, fTp2      : Real;
          fElapsedTime    : Real;
          fRayAngle       : Real;
@@ -53,8 +78,8 @@ Type  TDynCharArray = Array[0..0] Of Char;  { Unchecked array just to   }
          fBound          : Real;
          vy, vx          : Real;
          b, d, dot       : Real;
-         aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of Char;
-         aMap            : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of Char;
+         aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of TChar;
+         aMap            : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of TChar;
          pMap            : PDynCharArray;
          pScreenBuffer   : PDynCharArray;
          nTestX          : Integer;
@@ -65,14 +90,15 @@ Type  TDynCharArray = Array[0..0] Of Char;  { Unchecked array just to   }
          nCount          : Integer;
          nCeiling        : Integer;
          nFloor          : Integer;
-	 chShade         : Char;
-         chKey           : Char;
+	 chShade         : TChar;
+         chKey           : TChar;
          bRunning        : Boolean;
          bHitWall        : Boolean;
 	 bBoundary       : Boolean;
          p               : TPairRealArray;
-         strStats        : String[40];
          timer           : TEpikTimer;
+         strStats        : String[40];
+
 
 (**
   * Fill map for a given row.
@@ -95,16 +121,16 @@ End;
   *)
 Procedure InitEngine;
 Var
-       strMap : String[17];
+       strMap   : String[17];
        nCX, nCY : Integer;
 Begin
-  fFOV      := ( Pi / 4.0 );
-  fPlayerX  := ctPlayerX;
-  fPlayerY  := ctPlayerY;
-  fPlayerA  := 0.0;
-  timer     := TEpikTimer.Create( Nil );
+  timer    := TEpikTimer.Create( Nil );
+  fFOV     := ( Pi / 4.0 );
+  fPlayerX := ctPlayerX;
+  fPlayerY := ctPlayerY;
+  fPlayerA := 0.0;
+  bRunning := True;
 
-  WriteLn( SizeOf( Char ) );
   { Create Map of world space # = wall block, . = space }
   FillMapData( 0, '#########.......' );
   FillMapData( 1, '#...............' );
@@ -126,15 +152,78 @@ Begin
 
   FillChar( aScreenBuffer, SizeOf( aScreenBuffer ), ' ' );
   pScreenBuffer := @aScreenBuffer; { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
+
+  timer.Start;
+  fTp1 := timer.Elapsed;
+End;
+
+(**
+  * Initialize the output device.
+  *)
+Procedure OpenOutputDevice;
+Begin
+{$IFDEF __NCURSES}
+  InitScr;
+  NoEcho;         { No echo user input        }
+  Curs_Set( 0 );  { No cursor                 }
+  Timeout( 0 );   { No timeout for user input }
+  ResizeTerm( ctScreenHeight, ctScreenWidth );
+{$ENDIF __NCURSES}
+End;
+
+(**
+  * Close the output device.
+  *)
+Procedure CloseOutputDevice;
+Begin
+{$IFDEF __NCURSES}
+  EndWin;
+{$ENDIF __NCURSES}
+End;
+
+(**
+  * Process keyboard input handling.
+  *)
+Function ProcessInput : TChar;
+Var
+      chRes   : TChar ;
+
+Begin
+{$IFDEF __NCURSES}
+  chRes := TChar( getch );
+
+  Case Ord( chRes ) Of
+    KEY_LEFT  : chRes := 'A';
+    KEY_RIGHT : chRes := 'D';
+    KEY_UP    : chRes := 'W';
+    KEY_DOWN  : chRes := 'S';
+  End;
+{$ELSE  __CRT}
+  If( KeyPressed ) Then
+    chRes := UpCase( ReadKey );
+{$ENDIF __NCURSES}
+
+  ProcessInput := chRes;
+End;
+
+(**
+  * Write content to output device.
+  *)
+Procedure WriteOutput;
+Begin
+{$IFDEF __NCURSES}
+  MvPrintW( 0, 0, '%s', pScreenBuffer );
+  Refresh;
+{$ELSE  __CRT}
+  GotoXY( 1, 1 );
+  Write( StrPas( pScreenBuffer^ ) );
+{$ENDIF __NCURSES}
 End;
 
 
 Begin       { Main entry point }
-  InitEngine;           { Initialize engine data }
-  timer.Start;
-  nBytesWritten := 0;
-  fTp1     := timer.Elapsed;
-  bRunning := True;
+  InitEngine;           { Initialize engine data       }
+  OpenOutputDevice;     { Initialize the output device }
 
   ClrScr;
 
@@ -151,8 +240,7 @@ Begin       { Main entry point }
     chKey := ' ';
 
     { Keyboard handling }
-    If( KeyPressed ) Then
-      chKey := UpCase( ReadKey );
+    chKey := ProcessInput;
 
     Case chKey Of
       {  Handle CCW Rotation }
@@ -279,13 +367,13 @@ Begin       { Main entry point }
       chShade := ' ';
 
       If( fDistanceToWall <= ctDepth / 4.0 )  Then
-        chShade := #$DB    {0x2588}  { Very close }
+        chShade := #$2588 {#$DB}  {0x2588}  { Very close }
       Else If( fDistanceToWall < ctDepth / 3.0 )  Then
-        chShade := #$B2  {0x2593}
+        chShade := #$2593 {#$B2}  {0x2593}
       Else If( fDistanceToWall < ctDepth / 2.0 )  Then
-        chShade := #$B1  {0x2592}
+        chShade := #$2592 {#$B1}  {0x2592}
       Else If( fDistanceToWall < ctDepth )  Then
-        chShade := #$B0  {0x2591}
+        chShade := #$2591 {#$B0}  {0x2591}
       Else
         chShade := ' ';            { Too far away }
 
@@ -326,8 +414,13 @@ Begin       { Main entry point }
 
     { Display stats }
     strStats := Format( 'X=%3.2f, Y=%3.2f, A=%3.2f FPS=%3.8f ', [fPlayerX, fPlayerY, fPlayerA, {1.0 /} fElapsedTime ] );
+    System.Move( strStats[1], pScreenBuffer^, Length( strStats ) );
+
+    (*
+    { For WideChar, use routine below }
     For nx := 0 To Length( strStats ) Do
       pScreenBuffer^[nx] := strStats[nx+1];
+    *)
 
     { Display Map }
     For nx := 0 To ( ctMapWidth - 1 ) Do
@@ -341,11 +434,11 @@ Begin       { Main entry point }
     { Display Frame }
     pScreenBuffer^[ctScreenWidth * ctScreenHeight - 1] := #0;
 
-    ClrScr;
-    Write( StrPas( pScreenBuffer^ ) );
+    WriteOutput;
   End;
 
   timer.Stop;
+  CloseOutputDevice;
 End.
 
 { That's It!! - PopolonY2k }
