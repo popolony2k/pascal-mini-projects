@@ -8,6 +8,8 @@ cmdlnpas
 This project depends on fp units base installation, that can be
 installed like below (Debian or Ubuntu and variants like Mint):
 
-sudo apt-get install fp-units-base-3.0.4
-
+ * Using ncurses 
+   sudo apt-get install fp-units-base-3.0.4
+ * Using iconvenc (iconv port to Free Pascal) 
+   sudo apt-get install fp-units-misc-3.0.4
 

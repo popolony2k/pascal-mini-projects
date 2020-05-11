@@ -40,7 +40,7 @@ Uses   SysUtils, DateUtils, Math, PairRealSort
 {$r-}
 
 (*
- * Constanbts and data structures definition.
+ * Constants and data structures definition.
  *)
 Const
          ctMili              = 1000;    { Miliseconds  scale              }
@@ -61,47 +61,49 @@ Const
 Type
 {$IFDEF __WIDECHAR}
       TChar        = WideChar;
+      TMapStatus   = WideString;              { Map status bar            }
 {$ELSE  __CHAR}
       TChar        = Char;
+      TMapStatus   = String[40];              { Map status bar            }
 {$ENDIF __WIDECHAR}
       (* From (types.pas) - PopolonY2k Framework *)
       TDynCharArray = Array[0..0] Of TChar;   { Unchecked array just to   }
       PDynCharArray = ^TDynCharArray;         { work easily like C does   }
       TMapRowData   = String[ctMapWidth+1];   { Map row data              }
 
+
 Var
-         fPlayerA        : Real;        { Player Start Rotation           }
-         fPlayerX        : Real;        { Player start                    }
-         fPlayerY        : Real;        { position                        }
-         fFOV            : Real;        { Field of View                   }
-         fTp1, fTp2      : Real;
-         fElapsedTime    : Real;
-         fRayAngle       : Real;
-         fStepSize       : Real;
-	 fDistanceToWall : Real;
-         fEyeX           : Real;
-         fEyeY           : Real;
-         vy, vx          : Real;
-         b, d, dot       : Real;
-         aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of TChar;
-         aMap            : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of TChar;
-         pMap            : PDynCharArray;
-         pScreenBuffer   : PDynCharArray;
-         nTestX          : Integer;
-         nTestY          : Integer;
-         x, y, tx, ty    : Integer;
-         nx, ny          : Integer;
-         nBytesWritten   : Integer;
-         nCount          : Integer;
-         nCeiling        : Integer;
-         nFloor          : Integer;
-	 chShade         : TChar;
-         chKey           : TChar;
-         bRunning        : Boolean;
-         bHitWall        : Boolean;
-	 bBoundary       : Boolean;
-         p               : TPairRealArray;
-         strStats        : String[40];
+      fPlayerA        : Real;                 { Player Start Rotation     }
+      fPlayerX        : Real;                 { Player start              }
+      fPlayerY        : Real;                 { position                  }
+      fFOV            : Real;                 { Field of View             }
+      fTp1, fTp2      : Real;
+      fElapsedTime    : Real;
+      fRayAngle       : Real;
+      fStepSize       : Real;
+      fDistanceToWall : Real;
+      fEyeX           : Real;
+      fEyeY           : Real;
+      vy, vx          : Real;
+      b, d, dot       : Real;
+      aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of TChar;
+      aMap            : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of TChar;
+      pMap            : PDynCharArray;
+      pScreenBuffer   : PDynCharArray;
+      nTestX          : Integer;
+      nTestY          : Integer;
+      x, y, tx, ty    : Integer;
+      nx, ny          : Integer;
+      nCount          : Integer;
+      nCeiling        : Integer;
+      nFloor          : Integer;
+      chShade         : TChar;
+      chKey           : TChar;
+      bRunning        : Boolean;
+      bHitWall        : Boolean;
+      bBoundary       : Boolean;
+      p               : TPairRealArray;
+      strStats        : TMapStatus;
 
 
 (**
@@ -132,9 +134,6 @@ End;
   * Initialize engine data, maps and variables.
   *)
 Procedure InitEngine;
-Var
-       strMap   : String[17];
-       nCX, nCY : Integer;
 Begin
   fFOV     := ( Pi / 4.0 );
   fPlayerX := ctPlayerX;
@@ -163,7 +162,8 @@ Begin
   pMap := @aMap; { pMap := Ptr( Addr( aMap ) ); (* TP3 *) }
 
   FillChar( aScreenBuffer, SizeOf( aScreenBuffer ), ' ' );
-  pScreenBuffer := @aScreenBuffer; { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
+  { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
+  pScreenBuffer := @aScreenBuffer;
 End;
 
 (**
@@ -173,9 +173,9 @@ Procedure OpenOutputDevice;
 Begin
 {$IFDEF __NCURSES}
   InitScr;
-  NoEcho;         { No echo user input        }
-  Curs_Set( 0 );  { No cursor                 }
-  Timeout( 0 );   { No timeout for user input }
+  NoEcho;                  { No echo user input        }
+  NoDelay( StdScr, True ); { No input delay            }
+  Curs_Set( 0 );           { No cursor                 }
   ResizeTerm( ctScreenHeight, ctScreenWidth );
 {$ENDIF __NCURSES}
 End;
@@ -230,11 +230,10 @@ Begin
 End;
 
 
-Begin       { Main entry point }
+Begin                   { Main entry point }
+  ClrScr;
   InitEngine;           { Initialize engine data       }
   OpenOutputDevice;     { Initialize the output device }
-
-  ClrScr;
 
   While( bRunning ) Do
   Begin
@@ -373,13 +372,13 @@ Begin       { Main entry point }
       chShade := ' ';
 
       If( fDistanceToWall <= ctDepth / 4.0 )  Then
-        chShade := #$2588 {#$DB}  {0x2588}  { Very close }
+        chShade := 'X' {#$2F} {#$DB}  {#$2588}  { Very close }
       Else If( fDistanceToWall < ctDepth / 3.0 )  Then
-        chShade := #$2593 {#$B2}  {0x2593}
+        chShade := 'x' {#$5C} {#$B2}  {#$2593}
       Else If( fDistanceToWall < ctDepth / 2.0 )  Then
-        chShade := #$2592 {#$B1}  {0x2592}
+        chShade := '*' {#$2A} {#$B1}  {#$2592}
       Else If( fDistanceToWall < ctDepth )  Then
-        chShade := #$2591 {#$B0}  {0x2591}
+        chShade := '^' {#$5E} {#$B0}  {#$2591}
       Else
         chShade := ' ';            { Too far away }
 
