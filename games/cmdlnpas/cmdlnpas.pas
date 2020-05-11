@@ -87,9 +87,9 @@ Var
       vy, vx          : Real;
       b, d, dot       : Real;
       aScreenBuffer   : Array[0..ctScreenWidth-1, 0..ctScreenHeight-1] Of TChar;
-      aMap            : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of TChar;
-      pMap            : PDynCharArray;
-      pScreenBuffer   : PDynCharArray;
+      aMapBuffer      : Array[0..ctMapWidth-1, 0..ctMapHeight-1] Of TChar;
+      aMap            : TDynCharArray Absolute aMapBuffer;
+      aScreen         : TDynCharArray Absolute aScreenBuffer;
       nTestX          : Integer;
       nTestY          : Integer;
       x, y, tx, ty    : Integer;
@@ -127,7 +127,7 @@ Begin
   nLen := ( Length( strData ) - 1 );
 
   For nCount := 0 To nLen Do
-    aMap[nRow, nCount] := strData[nCount+1];
+    aMapBuffer[nRow, nCount] := strData[nCount+1];
 End;
 
 (**
@@ -159,11 +159,8 @@ Begin
   FillMapData( 13,'#......#########'  );
   FillMapData( 14,'#..............#'  );
   FillMapData( 15,'################'  );
-  pMap := @aMap; { pMap := Ptr( Addr( aMap ) ); (* TP3 *) }
 
   FillChar( aScreenBuffer, SizeOf( aScreenBuffer ), ' ' );
-  { pScreenBuffer := Ptr( Addr( aScreenBuffer ) ); (* TP3 *) }
-  pScreenBuffer := @aScreenBuffer;
 End;
 
 (**
@@ -221,11 +218,11 @@ End;
 Procedure WriteOutput;
 Begin
 {$IFDEF __NCURSES}
-  MvPrintW( 0, 0, '%s', pScreenBuffer );
+  MvPrintW( 0, 0, '%s', aScreen );
   Refresh;
 {$ELSE  __CRT}
   GotoXY( 1, 1 );
-  Write( StrPas( pScreenBuffer^ ) );
+  Write( StrPas( aScreen ) );
 {$ENDIF __NCURSES}
 End;
 
@@ -262,7 +259,7 @@ Begin                   { Main entry point }
               fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
               fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
-              if( pMap^[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
+              if( aMap[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
               Begin
 	        fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 		fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
@@ -274,7 +271,7 @@ Begin                   { Main entry point }
 	      fPlayerX := fPlayerX - Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 	      fPlayerY := fPlayerY - Cos( fPlayerA ) * ctSpeed * fElapsedTime;
 
-              if( pMap^[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
+              if( aMap[Trunc( fPlayerX ) * ctMapWidth + Trunc( fPlayerY ) ] = '#' )  Then
 	      Begin
                 fPlayerX := fPlayerX + Sin( fPlayerA ) * ctSpeed * fElapsedTime;
 		fPlayerY := fPlayerY + Cos( fPlayerA ) * ctSpeed * fElapsedTime;
@@ -318,7 +315,7 @@ Begin                   { Main entry point }
         Else
         Begin
           { Ray is inbounds so test to see if the ray cell is a wall block }
-          If( pMap^[nTestX * ctMapWidth + nTestY] = '#')  Then
+          If( aMap[nTestX * ctMapWidth + nTestY] = '#')  Then
           Begin
             { Ray has hit wall }
             bHitWall := True;
@@ -389,10 +386,10 @@ Begin                   { Main entry point }
       Begin
         { Each Row }
         If( y <= nCeiling )  Then
-          pScreenBuffer^[y*ctScreenWidth + x] := ' '
+          aScreen[y*ctScreenWidth + x] := ' '
         Else
         if( ( y > nCeiling ) And ( y <= nFloor ) )  Then
-          pScreenBuffer^[y*ctScreenWidth + x] := chShade
+          aScreen[y*ctScreenWidth + x] := chShade
         Else  { Floor }
         Begin
           { Shade floor based on distance }
@@ -412,26 +409,26 @@ Begin                   { Main entry point }
           Else
             chShade := ' ';
 
-          pScreenBuffer^[y*ctScreenWidth + x] := chShade;
+          aScreen[y*ctScreenWidth + x] := chShade;
         End;
       End;
     End;
 
     { Display stats }
     strStats := Format( 'X=%3.2f, Y=%3.2f, A=%3.2f FPS=%3.8f ', [fPlayerX, fPlayerY, fPlayerA, {1.0 /} fElapsedTime ] );
-    System.Move( strStats[1], pScreenBuffer^, Length( strStats ) );
+    System.Move( strStats[1], aScreen, Length( strStats ) );
 
     { Display Map }
     For nx := 0 To ( ctMapWidth - 1 ) Do
       For ny := 0 To ( ctMapHeight -1 ) Do
       Begin
-        pScreenBuffer^[( ny + 1 ) * ctScreenWidth + nx] := pMap^[ny * ctMapWidth + nx];
+        aScreen[( ny + 1 ) * ctScreenWidth + nx] := aMap[ny * ctMapWidth + nx];
       End;
 
-    pScreenBuffer^[Trunc( fPlayerX + 1 ) * ctScreenWidth + Trunc( fPlayerY )] := 'P';
+    aScreen[Trunc( fPlayerX + 1 ) * ctScreenWidth + Trunc( fPlayerY )] := 'P';
 
     { Display Frame }
-    pScreenBuffer^[ctScreenWidth * ctScreenHeight - 1] := #0;
+    aScreen[ctScreenWidth * ctScreenHeight - 1] := #0;
 
     WriteOutput;
   End;
