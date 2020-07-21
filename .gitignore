@@ -4,6 +4,10 @@
 bin
 units
 
+# Free Pascal Editor files
+fp.cfg
+fp.dsk
+
 # Lazarus compiler-generated binaries (safe to delete)
 *.exe
 *.dll
